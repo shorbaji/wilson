@@ -1,0 +1,144 @@
+Parameters:
+  MainVpcCidrBlock:
+    Type: String
+    Default: 10.0.0.0/16
+Outputs:
+  JumpEip:
+    Value:
+      Ref: EipJumpBox
+Resources:
+  VpcMain:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock:
+        Ref: MainVpcCidrBlock
+      Tags:
+        - Key: Name
+          Value: vpc-main
+  IgwMain:
+    Type: AWS::EC2::InternetGateway
+  MainVpcIgwAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId:
+        Ref: IgwMain
+      VpcId:
+        Ref: VpcMain
+  SubnetDmzA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: us-east-1a
+      CidrBlock: 10.0.0.0/24
+      VpcId:
+        Ref: VpcMain
+      Tags:
+        - Key: Name
+          Value: DMZ Subnet A
+  SubnetDmzB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: us-east-1b
+      CidrBlock: 10.0.1.0/24
+      VpcId:
+        Ref: VpcMain
+      Tags:
+        - Key: Name
+          Value: DMZ Subnet B
+  SubnetPrivateA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: us-east-1a
+      CidrBlock: 10.0.2.0/24
+      VpcId:
+        Ref: VpcMain
+      Tags:
+        - Key: Name
+          Value: Private Subnet A
+  SubnetPrivateB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: us-east-1b
+      CidrBlock: 10.0.3.0/24
+      VpcId:
+        Ref: VpcMain
+      Tags:
+        - Key: Name
+          Value: Private Subnet B
+  RouteTableDmz:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: VpcMain
+  RouteDmzDefault:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: IgwMain
+      RouteTableId:
+        Ref: RouteTableDmz
+  SubnetRouteTableAssociationA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: RouteTableDmz
+      SubnetId:
+        Ref: SubnetDmzA
+  SubnetRouteTableAssociationB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: RouteTableDmz
+      SubnetId:
+        Ref: SubnetDmzB
+  SecurityGroupJump:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Jump box security group
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          ToPort: 22
+          FromPort: 22
+          IpProtocol: tcp
+  Ec2JumpBox:
+    Type: AWS::EC2::Instance
+    Properties:
+      SubnetId:
+        Ref: SubnetDmzA
+      ImageId: ami-b73b63a0
+      InstanceType: t2.micro
+      KeyName: 20161207
+  EipJumpBox:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId:
+        Ref: Ec2JumpBox
+      Domain: vpc
+  
+  RDSMainDb:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName: MainDB
+      AllocatedStorage: 200
+      Engine: MySQL
+      DBInstanceClass: db.m4.large
+      MasterUsername: admin
+      MasterUserPassword: Password
+      MultiAZ: true
+  LaunchConfigDjango:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      KeyName: 20161207
+      ImageId: ami-b73b63a0
+      InstanceType: m4.large
+  AutoScalingGroupDjango:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AvailabilityZones:
+        - us-east-1a
+        - us-east-1b
+      LaunchConfigurationName:
+        Ref: LaunchConfigDjango
+      MinSize: 2
+      MaxSize: 2
+        
