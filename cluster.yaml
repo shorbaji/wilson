@@ -114,15 +114,14 @@ Resources:
       InstanceId:
         Ref: Ec2JumpBox
       Domain: vpc
-  
   RDSMainDb:
     Type: AWS::RDS::DBInstance
     Properties:
       DBName: MainDB
-      AllocatedStorage: 200
-      Engine: MySQL
+      AllocatedStorage: 20
+      Engine: postgres
       DBInstanceClass: db.m4.large
-      MasterUsername: admin
+      MasterUsername: master
       MasterUserPassword: Password
       MultiAZ: true
   LaunchConfigDjango:
@@ -141,4 +140,5 @@ Resources:
         Ref: LaunchConfigDjango
       MinSize: 2
       MaxSize: 2
+      DesiredCapacity: 2
         
